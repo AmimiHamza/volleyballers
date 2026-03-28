@@ -35,6 +35,14 @@ jobs:
         working-directory: frontend
         run: npx expo prebuild --platform android --no-install
 
+      - name: Patch Kotlin version for KSP compatibility
+        working-directory: frontend/android
+        run: |
+          sed -i 's/kotlinVersion = "1.9.25"/kotlinVersion = "2.0.21"/' build.gradle
+          sed -i 's/kotlin_version = "1.9.25"/kotlin_version = "2.0.21"/' build.gradle
+          echo "Kotlin version after patch:"
+          grep -i kotlin build.gradle || true
+
       - name: Make gradlew executable
         working-directory: frontend/android
         run: chmod +x gradlew
