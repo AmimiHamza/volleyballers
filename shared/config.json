@@ -1,0 +1,7 @@
+{
+  "server": {
+    "host": "34.175.152.148",
+    "port": 80,
+    "protocol": "http"
+  }
+}
