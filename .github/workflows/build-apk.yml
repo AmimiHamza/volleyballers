@@ -38,31 +38,43 @@ jobs:
       - name: Inject network security config for HTTP API access
         run: |
           mkdir -p frontend/android/app/src/main/res/xml
-          cat > frontend/android/app/src/main/res/xml/network_security_config.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
+          python3 << 'PYEOF'
+          import os
+
+          # Write network_security_config.xml
+          xml_content = '''<?xml version="1.0" encoding="utf-8"?>
           <network-security-config>
             <base-config cleartextTrafficPermitted="true">
               <trust-anchors>
                 <certificates src="system" />
               </trust-anchors>
             </base-config>
-          </network-security-config>
-          XMLEOF
+          </network-security-config>'''
 
-          # Add networkSecurityConfig to AndroidManifest.xml
-          python3 -c "
-          import re
-          with open('frontend/android/app/src/main/AndroidManifest.xml', 'r') as f:
+          xml_path = "frontend/android/app/src/main/res/xml/network_security_config.xml"
+          with open(xml_path, "w") as f:
+              f.write(xml_content)
+          print(f"Wrote {xml_path}")
+
+          # Patch AndroidManifest.xml
+          manifest_path = "frontend/android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r") as f:
               content = f.read()
-          if 'networkSecurityConfig' not in content:
+          print("Current manifest application tag:")
+          for line in content.split("\n"):
+              if "application" in line.lower() or "cleartext" in line.lower():
+                  print(f"  {line.strip()}")
+          if "networkSecurityConfig" not in content:
               content = content.replace(
-                  'android:usesCleartextTraffic=\"true\"',
-                  'android:usesCleartextTraffic=\"true\" android:networkSecurityConfig=\"@xml/network_security_config\"'
+                  'android:usesCleartextTraffic="true"',
+                  'android:usesCleartextTraffic="true" android:networkSecurityConfig="@xml/network_security_config"'
               )
-          with open('frontend/android/app/src/main/AndroidManifest.xml', 'w') as f:
-              f.write(content)
-          print('AndroidManifest.xml patched successfully')
-          "
+              with open(manifest_path, "w") as f:
+                  f.write(content)
+              print("Patched AndroidManifest.xml with networkSecurityConfig")
+          else:
+              print("networkSecurityConfig already present")
+          PYEOF
 
       - name: Build APK
         working-directory: frontend/android
