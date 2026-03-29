@@ -73,7 +73,14 @@ jobs:
 
       - name: Build APK
         working-directory: frontend/android
-        run: ./gradlew assembleDebug
+        run: |
+          ./gradlew assembleDebug --info > /tmp/gradle-output.txt 2>&1 || {
+            echo "=== KOTLIN COMPILATION ERRORS ==="
+            grep -E "error:|\.kt:[0-9]+|Unresolved reference|overload resolution|None of the following" /tmp/gradle-output.txt | head -60
+            echo "=== LAST 50 LINES ==="
+            tail -50 /tmp/gradle-output.txt
+            exit 1
+          }
 
       - name: Find APK
         run: find frontend/android -name "*.apk" -type f
