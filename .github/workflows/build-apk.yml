@@ -73,7 +73,10 @@ jobs:
 
       - name: Build APK
         working-directory: frontend/android
-        run: ./gradlew assembleDebug --stacktrace 2>&1 | tail -150
+        run: ./gradlew assembleDebug
+
+      - name: Find APK
+        run: find frontend/android -name "*.apk" -type f
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
