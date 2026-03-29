@@ -27,6 +27,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Decode google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > frontend/google-services.json
+
       - name: Install dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps
@@ -35,10 +38,13 @@ jobs:
         working-directory: frontend
         run: npx expo prebuild --platform android --no-install
 
-      - name: Verify network security config
+      - name: Verify native config
         run: |
           echo "=== network_security_config.xml ==="
           cat frontend/android/app/src/main/res/xml/network_security_config.xml 2>/dev/null || echo "NOT FOUND"
+          echo ""
+          echo "=== google-services.json ==="
+          [ -f frontend/android/app/google-services.json ] && echo "PRESENT" || echo "NOT FOUND"
           echo ""
           echo "=== AndroidManifest.xml (application tag) ==="
           grep -A2 "<application" frontend/android/app/src/main/AndroidManifest.xml

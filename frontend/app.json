@@ -23,14 +23,22 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.volleyup.app",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",
-      "./plugins/withNetworkSecurityConfig"
+      "./plugins/withNetworkSecurityConfig",
+      [
+        "expo-notifications",
+        {
+          "color": "#FF6B35",
+          "defaultChannel": "default"
+        }
+      ]
     ]
   }
 }

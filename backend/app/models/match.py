@@ -16,6 +16,7 @@ class Match(db.Model):
     min_players = db.Column(db.Integer, default=6)
     status = db.Column(db.String(20), default="open")
     current_players = db.Column(db.Integer, default=0)
+    reminder_sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,

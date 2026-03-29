@@ -1,6 +1,7 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from "react";
 import { getItem, setItem, deleteItem } from "../utils/storage";
 import apiClient from "../api/client";
+import { registerForPushNotifications, unregisterPushToken } from "../utils/pushNotifications";
 
 const AuthContext = createContext(null);
 
@@ -9,6 +10,7 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const pushTokenRef = useRef(null);
 
   // Load stored tokens on mount
   useEffect(() => {
@@ -25,6 +27,10 @@ export function AuthProvider({ children }) {
               headers: { Authorization: `Bearer ${storedAccess}` },
             });
             setUser(res.data.data);
+            // Register push token on app startup
+            registerForPushNotifications().then((token) => {
+              pushTokenRef.current = token;
+            });
           } catch {
             // Token might be expired, try refresh
             try {
@@ -76,6 +82,10 @@ export function AuthProvider({ children }) {
       headers: { Authorization: `Bearer ${access_token}` },
     });
     setUser(profileRes.data.data);
+    // Register push token after login
+    registerForPushNotifications().then((token) => {
+      pushTokenRef.current = token;
+    });
     return res.data;
   };
 
@@ -90,10 +100,16 @@ export function AuthProvider({ children }) {
       headers: { Authorization: `Bearer ${access_token}` },
     });
     setUser(profileRes.data.data);
+    // Register push token after registration — this triggers the permission prompt
+    registerForPushNotifications().then((token) => {
+      pushTokenRef.current = token;
+    });
     return res.data;
   };
 
   const logout = async () => {
+    await unregisterPushToken(pushTokenRef.current);
+    pushTokenRef.current = null;
     await clearTokens();
   };
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { ActivityIndicator, View, Text, StyleSheet } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { useAuth } from "../contexts/AuthContext";
 import apiClient from "../api/client";
 
@@ -140,6 +141,45 @@ function MainTabNavigator() {
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const navigationRef = useNavigationContainerRef();
+  const notificationListener = useRef();
+  const responseListener = useRef();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Handle notification taps (when user taps a push notification)
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        if (!data || !navigationRef.isReady()) return;
+
+        const { reference_type, reference_id } = data;
+        if (reference_type === "match" && reference_id) {
+          navigationRef.navigate("Main", {
+            screen: "MatchesTab",
+            params: {
+              screen: "MatchDetail",
+              params: { matchId: reference_id },
+            },
+          });
+        } else if (reference_type === "user" && reference_id) {
+          navigationRef.navigate("PublicProfile", { userId: reference_id });
+        } else if (reference_type === "friend_request") {
+          navigationRef.navigate("Main", {
+            screen: "FriendsTab",
+            params: { screen: "FriendRequests" },
+          });
+        }
+      }
+    );
+
+    return () => {
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -150,7 +190,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>
