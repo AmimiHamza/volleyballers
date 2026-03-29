@@ -166,7 +166,7 @@ export default function SplashScreen({ onFinish }) {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>VolleyUp</Text>
+        <Text style={styles.appName}>VolleyConnect</Text>
       </Animated.View>
 
       {/* Bottom section: video + loading text */}
@@ -190,7 +190,7 @@ export default function SplashScreen({ onFinish }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FF6B35",
+    backgroundColor: "rgb(212, 206, 194)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 36,
     fontWeight: "800",
-    color: "#fff",
+    color: "#FF6B35",
     marginTop: 16,
     letterSpacing: 1,
   },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#fff",
+    color: "#FF6B35",
     marginTop: 16,
     letterSpacing: 2,
   },

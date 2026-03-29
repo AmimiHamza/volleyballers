@@ -55,7 +55,7 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>VolleyUp</Text>
+        <Text style={styles.title}>VolleyConnect</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
 
         <TextInput

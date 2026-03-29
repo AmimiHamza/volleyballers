@@ -69,7 +69,7 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.inner}>
         <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join VolleyUp today</Text>
+        <Text style={styles.subtitle}>Join VolleyConnect today</Text>
 
         <TextInput
           style={styles.input}
