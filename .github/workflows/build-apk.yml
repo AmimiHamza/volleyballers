@@ -35,44 +35,37 @@ jobs:
         working-directory: frontend
         run: npx expo prebuild --platform android --no-install
 
-      - name: Patch Kotlin version for KSP compatibility
+      - name: Patch build files
         working-directory: frontend/android
         run: |
           python3 << 'EOF'
+          # Patch build.gradle: inject kspVersion so expo-root-project skips auto-detection
           with open('build.gradle', 'r') as f:
               content = f.read()
-          print("=== Kotlin lines before patch ===")
-          for line in content.split('\n'):
-              if 'kotlin' in line.lower():
-                  print(repr(line))
-          content = content.replace('"1.9.25"', '"2.0.21"')
-          content = content.replace("'1.9.25'", "'2.0.21'")
+          # Inject kspVersion right after kotlinVersion line
+          content = content.replace(
+              'kotlinVersion = "1.9.25"',
+              'kotlinVersion = "1.9.25"\n        kspVersion = "1.9.25-1.0.20"'
+          )
           with open('build.gradle', 'w') as f:
               f.write(content)
-          print("=== Kotlin lines after patch ===")
-          for line in content.split('\n'):
-              if 'kotlin' in line.lower():
-                  print(repr(line))
-          EOF
-          echo "kotlinVersion=2.0.21" >> gradle.properties
-          echo "kotlin.version=2.0.21" >> gradle.properties
 
-      - name: Patch app/build.gradle - remove invalid properties
-        working-directory: frontend/android
-        run: |
-          python3 << 'EOF'
+          # Patch app/build.gradle: remove invalid property
           with open('app/build.gradle', 'r') as f:
-              content = f.read()
-          print("=== Before patch (line 17 area) ===")
-          for i, line in enumerate(content.split('\n')[10:25], start=11):
-              print(f"Line {i}: {repr(line)}")
-          lines = content.split('\n')
+              lines = f.readlines()
           lines = [l for l in lines if 'enableBundleCompression' not in l]
-          content = '\n'.join(lines)
           with open('app/build.gradle', 'w') as f:
-              f.write(content)
-          print("=== Patch applied ===")
+              f.writelines(lines)
+
+          print("=== build.gradle kotlin/ksp lines ===")
+          with open('build.gradle') as f:
+              for line in f:
+                  if 'kotlin' in line.lower() or 'ksp' in line.lower():
+                      print(repr(line.rstrip()))
           EOF
+
+          # Also set via gradle.properties as fallback
+          echo "kspVersion=1.9.25-1.0.20" >> gradle.properties
 
       - name: Make gradlew executable
         working-directory: frontend/android
@@ -80,11 +73,11 @@ jobs:
 
       - name: Build APK
         working-directory: frontend/android
-        run: ./gradlew assembleRelease -PkotlinVersion=2.0.21
+        run: ./gradlew assembleDebug --stacktrace 2>&1 | tail -150
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VolleyUp-release
-          path: frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: VolleyUp-debug
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
