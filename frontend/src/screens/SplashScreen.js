@@ -35,7 +35,7 @@ function WebVideo({ onLoad }) {
       style={{
         width: "100%",
         height: "100%",
-        objectFit: "contain",
+        objectFit: "cover",
         borderRadius: 16,
       }}
     />
@@ -49,7 +49,7 @@ function NativeVideo({ onLoad }) {
     <Video
       source={require("../../assets/animation.mp4")}
       style={{ width: "100%", height: "100%" }}
-      resizeMode={ResizeMode.CONTAIN}
+      resizeMode={ResizeMode.COVER}
       shouldPlay
       isLooping
       isMuted
