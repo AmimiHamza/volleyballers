@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -35,59 +35,17 @@ jobs:
         working-directory: frontend
         run: npx expo prebuild --platform android --no-install
 
-      - name: Patch build files
-        working-directory: frontend/android
-        run: |
-          python3 << 'EOF'
-          # Patch build.gradle: inject kspVersion so expo-root-project skips auto-detection
-          with open('build.gradle', 'r') as f:
-              content = f.read()
-          # Inject kspVersion right after kotlinVersion line
-          content = content.replace(
-              'kotlinVersion = "1.9.25"',
-              'kotlinVersion = "1.9.25"\n        kspVersion = "1.9.25-1.0.20"'
-          )
-          with open('build.gradle', 'w') as f:
-              f.write(content)
-
-          # Patch app/build.gradle: remove invalid property
-          with open('app/build.gradle', 'r') as f:
-              lines = f.readlines()
-          lines = [l for l in lines if 'enableBundleCompression' not in l]
-          with open('app/build.gradle', 'w') as f:
-              f.writelines(lines)
-
-          print("=== build.gradle kotlin/ksp lines ===")
-          with open('build.gradle') as f:
-              for line in f:
-                  if 'kotlin' in line.lower() or 'ksp' in line.lower():
-                      print(repr(line.rstrip()))
-          EOF
-
-          # Also set via gradle.properties as fallback
-          echo "kspVersion=1.9.25-1.0.20" >> gradle.properties
-
-      - name: Make gradlew executable
-        working-directory: frontend/android
-        run: chmod +x gradlew
-
       - name: Build APK
         working-directory: frontend/android
         run: |
-          ./gradlew assembleDebug --info > /tmp/gradle-output.txt 2>&1 || {
-            echo "=== KOTLIN COMPILATION ERRORS ==="
-            grep -E "error:|\.kt:[0-9]+|Unresolved reference|overload resolution|None of the following" /tmp/gradle-output.txt | head -60
-            echo "=== LAST 50 LINES ==="
-            tail -50 /tmp/gradle-output.txt
-            exit 1
-          }
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
-      - name: Find APK
-        run: find frontend/android -name "*.apk" -type f
-
-      - name: Upload APK
+      - name: Find and upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VolleyUp-debug
-          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          name: VolleyUp
+          path: |
+            frontend/android/app/build/outputs/apk/release/*.apk
+            frontend/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 90

@@ -28,20 +28,8 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "updates": {
-      "url": "https://u.expo.dev/6e22018f-428d-4758-a7d5-0d7e5ebea976"
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "plugins": [
-      "expo-secure-store",
-      "@react-native-community/datetimepicker"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "6e22018f-428d-4758-a7d5-0d7e5ebea976"
-      }
-    }
+      "expo-secure-store"
+    ]
   }
 }
