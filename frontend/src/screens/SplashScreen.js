@@ -24,6 +24,7 @@ export default function SplashScreen({ onFinish }) {
   const [dotIndex, setDotIndex] = useState(0);
   const [minTimeReached, setMinTimeReached] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [readyToFinish, setReadyToFinish] = useState(false);
 
   useEffect(() => {
     // Animate logo: scale up + fade in
@@ -93,9 +94,29 @@ export default function SplashScreen({ onFinish }) {
     };
   }, []);
 
+  // Only finish when BOTH video is loaded AND 3s have passed
   useEffect(() => {
-    if (minTimeReached) {
-      // Fade out entire screen
+    if (minTimeReached && videoReady && !readyToFinish) {
+      setReadyToFinish(true);
+    }
+  }, [minTimeReached, videoReady]);
+
+  // Start 3s countdown AFTER video loads (so user always sees 3s of video)
+  const handleVideoLoad = () => {
+    setVideoReady(true);
+  };
+
+  useEffect(() => {
+    if (!videoReady) return;
+    // Once video is ready, ensure at least 3s of video playback
+    const playTimer = setTimeout(() => {
+      setReadyToFinish(true);
+    }, 3000);
+    return () => clearTimeout(playTimer);
+  }, [videoReady]);
+
+  useEffect(() => {
+    if (readyToFinish) {
       Animated.timing(fadeOut, {
         toValue: 0,
         duration: 500,
@@ -104,7 +125,7 @@ export default function SplashScreen({ onFinish }) {
         onFinish();
       });
     }
-  }, [minTimeReached]);
+  }, [readyToFinish]);
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeOut }]}>
@@ -138,7 +159,7 @@ export default function SplashScreen({ onFinish }) {
             shouldPlay
             isLooping
             isMuted
-            onLoad={() => setVideoReady(true)}
+            onLoad={handleVideoLoad}
           />
         </View>
 
@@ -179,11 +200,10 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   videoWrap: {
-    width: width * 0.6,
-    height: 120,
+    width: width * 0.65,
+    height: 140,
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "transparent",
   },
   video: {
     width: "100%",
