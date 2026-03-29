@@ -130,7 +130,7 @@ export default function NotificationsScreen({ navigation }) {
     } else if (item.reference_type === "user" && item.reference_id) {
       navigation.navigate("PublicProfile", { userId: item.reference_id });
     } else if (item.reference_type === "friend_request") {
-      navigation.navigate("FriendsTab", { screen: "FriendRequests" });
+      navigation.navigate("FriendsTab");
     }
   };
 

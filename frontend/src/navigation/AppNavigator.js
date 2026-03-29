@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { ActivityIndicator, View, Text, StyleSheet } from "react-native";
+import { ActivityIndicator, View, Text, StyleSheet, Platform } from "react-native";
 import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -18,9 +18,8 @@ import MatchDetailScreen from "../screens/matches/MatchDetailScreen";
 import CreateMatchScreen from "../screens/matches/CreateMatchScreen";
 import RatePlayersScreen from "../screens/matches/RatePlayersScreen";
 
-// Friend screens
-import FriendsListScreen from "../screens/friends/FriendsListScreen";
-import FriendRequestsScreen from "../screens/friends/FriendRequestsScreen";
+// Friends screen (unified)
+import FriendsScreen from "../screens/friends/FriendsScreen";
 
 // Profile screens
 import ProfileScreen from "../screens/profile/ProfileScreen";
@@ -34,7 +33,6 @@ import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 const AuthStack = createStackNavigator();
 const MainTab = createBottomTabNavigator();
 const MatchStack = createStackNavigator();
-const FriendsStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const RootStack = createStackNavigator();
 
@@ -60,15 +58,6 @@ function MatchStackNavigator() {
       <MatchStack.Screen name="CreateMatch" component={CreateMatchScreen} options={{ title: "New Match" }} />
       <MatchStack.Screen name="RatePlayers" component={RatePlayersScreen} options={{ title: "Rate Players" }} />
     </MatchStack.Navigator>
-  );
-}
-
-function FriendsStackNavigator() {
-  return (
-    <FriendsStack.Navigator screenOptions={headerStyle}>
-      <FriendsStack.Screen name="FriendsList" component={FriendsListScreen} options={{ title: "Friends" }} />
-      <FriendsStack.Screen name="FriendRequests" component={FriendRequestsScreen} options={{ title: "Friend Requests" }} />
-    </FriendsStack.Navigator>
   );
 }
 
@@ -107,20 +96,67 @@ function MainTabNavigator() {
         tabBarActiveTintColor: "#FF6B35",
         tabBarInactiveTintColor: "#999",
         headerShown: false,
-        tabBarIcon: ({ color, size }) => {
+        tabBarStyle: {
+          backgroundColor: "#fff",
+          borderTopWidth: 0,
+          elevation: 20,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          height: Platform.OS === "ios" ? 88 : 64,
+          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          paddingTop: 8,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+          marginTop: 2,
+        },
+        tabBarIconStyle: {
+          marginBottom: -2,
+        },
+        tabBarIcon: ({ focused, color, size }) => {
           if (route.name === "MatchesTab") {
-            return <MaterialCommunityIcons name="volleyball" size={size} color={color} />;
+            return (
+              <MaterialCommunityIcons
+                name={focused ? "volleyball" : "volleyball"}
+                size={24}
+                color={color}
+              />
+            );
           }
           let iconName;
-          if (route.name === "FriendsTab") iconName = "people-outline";
-          else if (route.name === "Notifications") iconName = "notifications-outline";
-          else if (route.name === "ProfileTab") iconName = "person-outline";
-          return <Ionicons name={iconName} size={size} color={color} />;
+          if (route.name === "FriendsTab") {
+            iconName = focused ? "people" : "people-outline";
+          } else if (route.name === "Notifications") {
+            iconName = focused ? "notifications" : "notifications-outline";
+          } else if (route.name === "ProfileTab") {
+            iconName = focused ? "person-circle" : "person-circle-outline";
+          }
+          return <Ionicons name={iconName} size={24} color={color} />;
         },
       })}
     >
-      <MainTab.Screen name="MatchesTab" component={MatchStackNavigator} options={{ tabBarLabel: "Matches" }} />
-      <MainTab.Screen name="FriendsTab" component={FriendsStackNavigator} options={{ tabBarLabel: "Friends" }} />
+      <MainTab.Screen
+        name="MatchesTab"
+        component={MatchStackNavigator}
+        options={{ tabBarLabel: "Matches" }}
+      />
+      <MainTab.Screen
+        name="FriendsTab"
+        component={FriendsScreen}
+        options={{
+          tabBarLabel: "Friends",
+          headerShown: false,
+        }}
+      />
       <MainTab.Screen
         name="Notifications"
         component={NotificationsScreen}
@@ -129,12 +165,24 @@ function MainTabNavigator() {
           headerShown: true,
           ...headerStyle,
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#FF6B35",
+            fontSize: 10,
+            fontWeight: "700",
+            minWidth: 18,
+            height: 18,
+            lineHeight: 18,
+          },
         }}
         listeners={{
           focus: () => setUnreadCount(0),
         }}
       />
-      <MainTab.Screen name="ProfileTab" component={ProfileStackNavigator} options={{ tabBarLabel: "Profile" }} />
+      <MainTab.Screen
+        name="ProfileTab"
+        component={ProfileStackNavigator}
+        options={{ tabBarLabel: "Profile" }}
+      />
     </MainTab.Navigator>
   );
 }
@@ -142,13 +190,11 @@ function MainTabNavigator() {
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   const navigationRef = useNavigationContainerRef();
-  const notificationListener = useRef();
   const responseListener = useRef();
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Handle notification taps (when user taps a push notification)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
@@ -168,7 +214,6 @@ export default function AppNavigator() {
         } else if (reference_type === "friend_request") {
           navigationRef.navigate("Main", {
             screen: "FriendsTab",
-            params: { screen: "FriendRequests" },
           });
         }
       }
