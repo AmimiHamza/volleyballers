@@ -13,6 +13,7 @@ import { showConfirm } from "../../utils/alert";
 import { useToast } from "../../components/Toast";
 import { API_BASE_URL } from "../../config/server";
 import { useAuth } from "../../contexts/AuthContext";
+import { ProfileSkeleton } from "../../components/Skeleton";
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=128";
 
@@ -115,12 +116,9 @@ export default function PublicProfileScreen({ route }) {
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
+
 
   if (!profile) {
     return (

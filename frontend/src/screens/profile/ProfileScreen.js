@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { showConfirm } from "../../utils/alert";
-
+import { ProfileSkeleton } from "../../components/Skeleton";
 import { API_BASE_URL } from "../../config/server";
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=128";
@@ -24,7 +24,7 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
-  if (!user) return null;
+  if (!user) return <ProfileSkeleton />;
 
   const avatarUri = user.profile_picture
     ? `${API_BASE_URL.replace("/api", "")}${user.profile_picture}`

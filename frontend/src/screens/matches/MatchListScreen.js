@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../api/client";
 import usePolling from "../../hooks/usePolling";
+import { MatchListSkeleton } from "../../components/Skeleton";
 
 export default function MatchListScreen({ navigation }) {
   const [matches, setMatches] = useState([]);
@@ -22,11 +23,12 @@ export default function MatchListScreen({ navigation }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [locationFilter, setLocationFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("open");
+  const isFirstLoad = useRef(true);
 
   const fetchMatches = useCallback(
     async (pageNum = 1, append = false) => {
       try {
-        const params = { page: pageNum, per_page: 20, status: statusFilter };
+        const params = { page: pageNum, per_page: 15, status: statusFilter };
         if (locationFilter.trim()) params.location = locationFilter.trim();
 
         const res = await apiClient.get("/matches", { params });
@@ -45,6 +47,7 @@ export default function MatchListScreen({ navigation }) {
         setLoading(false);
         setRefreshing(false);
         setLoadingMore(false);
+        isFirstLoad.current = false;
       }
     },
     [locationFilter, statusFilter]
@@ -52,7 +55,9 @@ export default function MatchListScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
+      if (isFirstLoad.current) {
+        setLoading(true);
+      }
       fetchMatches(1);
     }, [fetchMatches])
   );
@@ -139,9 +144,7 @@ export default function MatchListScreen({ navigation }) {
       </View>
 
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#FF6B35" />
-        </View>
+        <MatchListSkeleton />
       ) : (
         <FlatList
           data={matches}

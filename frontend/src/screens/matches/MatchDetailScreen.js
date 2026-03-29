@@ -16,6 +16,7 @@ import { showConfirm } from "../../utils/alert";
 import { useToast } from "../../components/Toast";
 import { API_BASE_URL } from "../../config/server";
 import InviteFriendsModal from "../../components/InviteFriendsModal";
+import { MatchDetailSkeleton } from "../../components/Skeleton";
 import { useAuth } from "../../contexts/AuthContext";
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=64";
@@ -203,11 +204,7 @@ export default function MatchDetailScreen({ route, navigation }) {
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <MatchDetailSkeleton />;
   }
 
   if (!match) return null;

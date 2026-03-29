@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import apiClient from "../../api/client";
 import { useToast } from "../../components/Toast";
+import { UserListSkeleton } from "../../components/Skeleton";
 import { API_BASE_URL } from "../../config/server";
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=64";
@@ -81,11 +82,7 @@ export default function RatePlayersScreen({ route, navigation }) {
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <UserListSkeleton count={5} />;
   }
 
   return (

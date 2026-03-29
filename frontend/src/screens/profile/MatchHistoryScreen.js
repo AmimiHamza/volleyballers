@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import apiClient from "../../api/client";
+import { MatchListSkeleton } from "../../components/Skeleton";
 
 const STATUS_COLORS = {
   open: "#27ae60",
@@ -129,9 +130,7 @@ export default function MatchHistoryScreen({ navigation }) {
       </View>
 
       {loading && matches.length === 0 ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#FF6B35" />
-        </View>
+        <MatchListSkeleton />
       ) : (
         <FlatList
           data={matches}

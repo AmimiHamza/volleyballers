@@ -15,6 +15,7 @@ import apiClient from "../../api/client";
 import usePolling from "../../hooks/usePolling";
 import { useToast } from "../../components/Toast";
 import { API_BASE_URL } from "../../config/server";
+import { UserListSkeleton } from "../../components/Skeleton";
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=64";
 const avatarUrl = (pic) =>
@@ -174,14 +175,10 @@ export default function FriendsListScreen({ navigation }) {
 
       {/* Content */}
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#FF6B35" />
-        </View>
+        <UserListSkeleton count={6} />
       ) : showingSearch ? (
         searching ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#FF6B35" />
-          </View>
+          <UserListSkeleton count={3} />
         ) : (
           <FlatList
             data={searchResults}

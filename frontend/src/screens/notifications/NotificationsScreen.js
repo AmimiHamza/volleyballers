@@ -13,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "../../api/client";
 import usePolling from "../../hooks/usePolling";
 import { API_BASE_URL } from "../../config/server";
+import { NotificationListSkeleton } from "../../components/Skeleton";
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=64";
 
@@ -141,8 +142,8 @@ export default function NotificationsScreen({ navigation }) {
 
   if (loading && notifications.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B35" />
+      <View style={styles.container}>
+        <NotificationListSkeleton />
       </View>
     );
   }
