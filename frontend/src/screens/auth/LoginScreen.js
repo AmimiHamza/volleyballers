@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../components/Toast";
+import { API_BASE_URL } from "../../config/server";
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -32,10 +33,16 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       const serverMsg = error.response?.data?.message;
       const status = error.response?.status;
-      const networkErr = error.message;
-      const msg = serverMsg
-        ? `${serverMsg} (${status})`
-        : `Network error: ${networkErr}`;
+      let msg;
+      if (serverMsg) {
+        msg = `${serverMsg} (${status})`;
+      } else if (error.code === "ECONNABORTED") {
+        msg = "Request timed out — server may be unreachable";
+      } else if (error.code === "ERR_NETWORK") {
+        msg = `Cannot reach server at ${API_BASE_URL.replace("/api", "")}`;
+      } else {
+        msg = `Network error: ${error.message}`;
+      }
       toast.error(msg);
     } finally {
       setLoading(false);
