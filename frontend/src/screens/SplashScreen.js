@@ -211,14 +211,15 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     position: "absolute",
-    bottom: 40,
+    bottom: 30,
     alignItems: "center",
     width: "100%",
   },
   videoWrap: {
-    width: width,
-    height: 180,
+    width: width * 1.1,
+    height: 200,
     overflow: "hidden",
+    backgroundColor: "rgb(212, 206, 194)",
   },
   loadingText: {
     fontSize: 16,
