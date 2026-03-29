@@ -216,9 +216,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   videoWrap: {
-    width: width * 0.65,
-    height: 140,
-    borderRadius: 16,
+    width: width * 0.75,
+    height: 160,
     overflow: "hidden",
   },
   loadingText: {
