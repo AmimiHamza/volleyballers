@@ -57,6 +57,23 @@ jobs:
           echo "kotlinVersion=2.0.21" >> gradle.properties
           echo "kotlin.version=2.0.21" >> gradle.properties
 
+      - name: Patch app/build.gradle - remove invalid properties
+        working-directory: frontend/android
+        run: |
+          python3 << 'EOF'
+          with open('app/build.gradle', 'r') as f:
+              content = f.read()
+          print("=== Before patch (line 17 area) ===")
+          for i, line in enumerate(content.split('\n')[10:25], start=11):
+              print(f"Line {i}: {repr(line)}")
+          lines = content.split('\n')
+          lines = [l for l in lines if 'enableBundleCompression' not in l]
+          content = '\n'.join(lines)
+          with open('app/build.gradle', 'w') as f:
+              f.write(content)
+          print("=== Patch applied ===")
+          EOF
+
       - name: Make gradlew executable
         working-directory: frontend/android
         run: chmod +x gradlew
