@@ -126,7 +126,7 @@ export default function SplashScreen({ onFinish }) {
     if (!videoReady) return;
     const timer = setTimeout(() => {
       setReadyToFinish(true);
-    }, 3000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [videoReady]);
 
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   videoWrap: {
-    width: width * 0.75,
-    height: 160,
+    width: width,
+    height: 180,
     overflow: "hidden",
   },
   loadingText: {
