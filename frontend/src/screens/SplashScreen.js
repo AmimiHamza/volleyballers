@@ -7,22 +7,64 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Platform,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
 
-const { width, height } = Dimensions.get("window");
+// Only import expo-av on native (it breaks on web)
+let Video, ResizeMode;
+if (Platform.OS !== "web") {
+  const av = require("expo-av");
+  Video = av.Video;
+  ResizeMode = av.ResizeMode;
+}
 
+const { width } = Dimensions.get("window");
 const DOTS = [".", "..", "..."];
+
+// Web video component using HTML5 video tag
+function WebVideo({ onLoad }) {
+  const videoSource = require("../../assets/animation.mp4");
+  return (
+    <video
+      src={videoSource}
+      autoPlay
+      loop
+      muted
+      playsInline
+      onLoadedData={onLoad}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        borderRadius: 16,
+      }}
+    />
+  );
+}
+
+// Native video component using expo-av
+function NativeVideo({ onLoad }) {
+  if (!Video) return null;
+  return (
+    <Video
+      source={require("../../assets/animation.mp4")}
+      style={{ width: "100%", height: "100%" }}
+      resizeMode={ResizeMode.CONTAIN}
+      shouldPlay
+      isLooping
+      isMuted
+      onLoad={onLoad}
+    />
+  );
+}
 
 export default function SplashScreen({ onFinish }) {
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const videoOpacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
   const textPulse = useRef(new Animated.Value(1)).current;
   const fadeOut = useRef(new Animated.Value(1)).current;
   const [dotIndex, setDotIndex] = useState(0);
-  const [minTimeReached, setMinTimeReached] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [readyToFinish, setReadyToFinish] = useState(false);
 
@@ -42,7 +84,7 @@ export default function SplashScreen({ onFinish }) {
       }),
     ]).start();
 
-    // Fade in video after 400ms
+    // Fade in video area after 400ms
     setTimeout(() => {
       Animated.timing(videoOpacity, {
         toValue: 1,
@@ -50,15 +92,6 @@ export default function SplashScreen({ onFinish }) {
         useNativeDriver: true,
       }).start();
     }, 400);
-
-    // Fade in loading text after 800ms
-    setTimeout(() => {
-      Animated.timing(textOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }, 800);
 
     // Pulse animation for loading text
     const pulse = Animated.loop(
@@ -82,39 +115,22 @@ export default function SplashScreen({ onFinish }) {
       setDotIndex((prev) => (prev + 1) % 3);
     }, 500);
 
-    // Minimum 3 seconds
-    const timer = setTimeout(() => {
-      setMinTimeReached(true);
-    }, 3000);
-
     return () => {
       pulse.stop();
       clearInterval(dotInterval);
-      clearTimeout(timer);
     };
   }, []);
 
-  // Only finish when BOTH video is loaded AND 3s have passed
-  useEffect(() => {
-    if (minTimeReached && videoReady && !readyToFinish) {
-      setReadyToFinish(true);
-    }
-  }, [minTimeReached, videoReady]);
-
-  // Start 3s countdown AFTER video loads (so user always sees 3s of video)
-  const handleVideoLoad = () => {
-    setVideoReady(true);
-  };
-
+  // Once video is loaded, play for 3 seconds then finish
   useEffect(() => {
     if (!videoReady) return;
-    // Once video is ready, ensure at least 3s of video playback
-    const playTimer = setTimeout(() => {
+    const timer = setTimeout(() => {
       setReadyToFinish(true);
     }, 3000);
-    return () => clearTimeout(playTimer);
+    return () => clearTimeout(timer);
   }, [videoReady]);
 
+  // Fade out and finish
   useEffect(() => {
     if (readyToFinish) {
       Animated.timing(fadeOut, {
@@ -126,6 +142,10 @@ export default function SplashScreen({ onFinish }) {
       });
     }
   }, [readyToFinish]);
+
+  const handleVideoLoad = () => {
+    setVideoReady(true);
+  };
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeOut }]}>
@@ -152,15 +172,11 @@ export default function SplashScreen({ onFinish }) {
       {/* Bottom section: video + loading text */}
       <Animated.View style={[styles.bottomSection, { opacity: videoOpacity }]}>
         <View style={styles.videoWrap}>
-          <Video
-            source={require("../../assets/animation.mp4")}
-            style={styles.video}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay
-            isLooping
-            isMuted
-            onLoad={handleVideoLoad}
-          />
+          {Platform.OS === "web" ? (
+            <WebVideo onLoad={handleVideoLoad} />
+          ) : (
+            <NativeVideo onLoad={handleVideoLoad} />
+          )}
         </View>
 
         <Animated.Text style={[styles.loadingText, { opacity: textPulse }]}>
@@ -204,10 +220,6 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 16,
     overflow: "hidden",
-  },
-  video: {
-    width: "100%",
-    height: "100%",
   },
   loadingText: {
     fontSize: 16,
