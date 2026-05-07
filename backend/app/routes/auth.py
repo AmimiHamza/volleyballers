@@ -30,6 +30,8 @@ def register():
     username = data.get("username", "").strip()
     password = data.get("password", "")
     phone_number = data.get("phone_number")
+    city = data.get("city")
+    favorite_position = data.get("favorite_position")
 
     if not username or not password:
         return jsonify({"error": "missing_fields", "message": "Username and password are required", "status": 400}), 400
@@ -42,7 +44,7 @@ def register():
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
-    user = User(username=username, password_hash=password_hash, phone_number=phone_number)
+    user = User(username=username, password_hash=password_hash, phone_number=phone_number, city=city, favorite_position=favorite_position)
     db.session.add(user)
     db.session.commit()
 
@@ -120,7 +122,7 @@ def get_profile():
     if not user:
         return jsonify({"error": "not_found", "message": "User not found", "status": 404}), 404
 
-    return jsonify({"data": user.to_dict()}), 200
+    return jsonify({"data": user.to_dict(include_streak=True)}), 200
 
 
 # ── PUT /api/auth/profile ────────────────────────────────────────────────────
@@ -136,17 +138,25 @@ def update_profile():
     if request.content_type and "multipart/form-data" in request.content_type:
         phone_number = request.form.get("phone_number")
         bio = request.form.get("bio")
+        city = request.form.get("city")
+        favorite_position = request.form.get("favorite_position")
         file = request.files.get("profile_picture")
     else:
         data = request.get_json(silent=True) or {}
         phone_number = data.get("phone_number")
         bio = data.get("bio")
+        city = data.get("city")
+        favorite_position = data.get("favorite_position")
         file = None
 
     if phone_number is not None:
         user.phone_number = phone_number
     if bio is not None:
         user.bio = bio
+    if city is not None:
+        user.city = city
+    if favorite_position is not None:
+        user.favorite_position = favorite_position or None
 
     if file:
         if not _allowed_file(file.filename):

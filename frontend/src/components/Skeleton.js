@@ -1,145 +1,114 @@
 import React, { useEffect, useRef } from "react";
-import { View, Animated, StyleSheet } from "react-native";
+import { View, Animated, StyleSheet, Easing } from "react-native";
+import { colors, radius } from "../theme";
 
-/**
- * Animated skeleton placeholder with shimmer effect.
- *
- * Props:
- *  - width (number|string)  default "100%"
- *  - height (number)        default 16
- *  - borderRadius (number)  default 6
- *  - style (object)         extra styles
- */
-export function SkeletonBlock({ width = "100%", height = 16, borderRadius = 6, style }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+export function SkeletonBlock({ width, height, style }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     );
     loop.start();
     return () => loop.stop();
   }, []);
 
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
+
   return (
     <Animated.View
-      style={[{ width, height, borderRadius, backgroundColor: "#e0e0e0", opacity }, style]}
+      style={[
+        { width, height, backgroundColor: colors.card, borderRadius: 8, opacity },
+        style,
+      ]}
     />
   );
 }
 
-/** Skeleton for a match card in the list */
 export function MatchCardSkeleton() {
   return (
-    <View style={skeletonStyles.card}>
-      <View style={skeletonStyles.cardHeader}>
-        <SkeletonBlock width="60%" height={18} />
-        <SkeletonBlock width={60} height={22} borderRadius={12} />
-      </View>
-      <SkeletonBlock width="40%" height={14} style={{ marginTop: 10 }} />
-      <SkeletonBlock width="55%" height={14} style={{ marginTop: 8 }} />
-      <View style={skeletonStyles.cardFooter}>
-        <SkeletonBlock width={80} height={14} />
-        <SkeletonBlock width={70} height={14} />
+    <View style={styles.matchCard}>
+      <SkeletonBlock width={4} height="100%" style={{ borderRadius: 0 }} />
+      <View style={{ flex: 1, padding: 14, gap: 8 }}>
+        <SkeletonBlock width="70%" height={16} />
+        <SkeletonBlock width="50%" height={12} />
+        <SkeletonBlock width="60%" height={12} />
+        <SkeletonBlock width="100%" height={5} style={{ marginTop: 8 }} />
       </View>
     </View>
   );
 }
 
-/** Skeleton for the match list screen */
-export function MatchListSkeleton() {
+export function MatchListSkeleton({ count = 5 }) {
   return (
-    <View style={{ padding: 16 }}>
-      {[1, 2, 3, 4].map((i) => (
-        <MatchCardSkeleton key={i} />
-      ))}
+    <View style={{ padding: 16, gap: 10 }}>
+      {Array.from({ length: count }).map((_, i) => <MatchCardSkeleton key={i} />)}
     </View>
   );
 }
 
-/** Skeleton for a user row (friends, requests, notifications) */
 export function UserRowSkeleton() {
   return (
-    <View style={skeletonStyles.userRow}>
-      <SkeletonBlock width={48} height={48} borderRadius={24} />
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <SkeletonBlock width="50%" height={16} />
-        <SkeletonBlock width="30%" height={13} style={{ marginTop: 6 }} />
+    <View style={styles.userRow}>
+      <SkeletonBlock width={48} height={48} style={{ borderRadius: 24 }} />
+      <View style={{ flex: 1, gap: 6, marginLeft: 12 }}>
+        <SkeletonBlock width="55%" height={14} />
+        <SkeletonBlock width="35%" height={11} />
+      </View>
+      <SkeletonBlock width={40} height={40} style={{ borderRadius: 20 }} />
+    </View>
+  );
+}
+
+export function UserListSkeleton({ count = 6 }) {
+  return (
+    <View style={{ padding: 16, gap: 10 }}>
+      {Array.from({ length: count }).map((_, i) => <UserRowSkeleton key={i} />)}
+    </View>
+  );
+}
+
+export function NotificationSkeleton() {
+  return (
+    <View style={styles.notifRow}>
+      <SkeletonBlock width={44} height={44} style={{ borderRadius: 22 }} />
+      <View style={{ flex: 1, gap: 6, marginLeft: 12 }}>
+        <SkeletonBlock width="40%" height={11} />
+        <SkeletonBlock width="90%" height={13} />
       </View>
     </View>
   );
 }
 
-/** Skeleton for friends / requests list */
-export function UserListSkeleton({ count = 5 }) {
+export function NotificationListSkeleton({ count = 6 }) {
   return (
-    <View style={{ padding: 16 }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <UserRowSkeleton key={i} />
-      ))}
+    <View style={{ padding: 12, gap: 8 }}>
+      {Array.from({ length: count }).map((_, i) => <NotificationSkeleton key={i} />)}
     </View>
   );
 }
 
-/** Skeleton for notification items */
-export function NotificationListSkeleton() {
-  return (
-    <View>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <View key={i} style={skeletonStyles.notifRow}>
-          <SkeletonBlock width={44} height={44} borderRadius={22} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-              <SkeletonBlock width={80} height={12} />
-              <SkeletonBlock width={40} height={12} />
-            </View>
-            <SkeletonBlock width="80%" height={14} />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** Skeleton for match detail screen */
 export function MatchDetailSkeleton() {
   return (
-    <View style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
-      {/* Header */}
-      <View style={skeletonStyles.detailSection}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <SkeletonBlock width="60%" height={22} />
-          <SkeletonBlock width={70} height={24} borderRadius={12} />
-        </View>
-        <SkeletonBlock width="90%" height={15} style={{ marginTop: 12 }} />
+    <View style={{ padding: 12, gap: 12 }}>
+      <View style={[styles.section, { gap: 10 }]}>
+        <SkeletonBlock width="80%" height={22} />
+        <SkeletonBlock width="100%" height={14} />
       </View>
-      {/* Info */}
-      <View style={skeletonStyles.detailSection}>
-        {[1, 2, 3, 4].map((i) => (
-          <View key={i} style={skeletonStyles.infoRow}>
-            <SkeletonBlock width={60} height={15} />
-            <SkeletonBlock width={100} height={15} />
-          </View>
+      <View style={[styles.section, { gap: 10 }]}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonBlock key={i} width="100%" height={20} />
         ))}
       </View>
-      {/* Organizer */}
-      <View style={skeletonStyles.detailSection}>
-        <SkeletonBlock width={80} height={16} style={{ marginBottom: 12 }} />
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <SkeletonBlock width={40} height={40} borderRadius={20} />
-          <SkeletonBlock width={100} height={16} style={{ marginLeft: 10 }} />
-        </View>
-      </View>
-      {/* Players */}
-      <View style={skeletonStyles.detailSection}>
-        <SkeletonBlock width={90} height={16} style={{ marginBottom: 12 }} />
-        {[1, 2, 3].map((i) => (
-          <View key={i} style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-            <SkeletonBlock width={40} height={40} borderRadius={20} />
-            <SkeletonBlock width={120} height={15} style={{ marginLeft: 10 }} />
+      <View style={[styles.section, { gap: 10 }]}>
+        <SkeletonBlock width="50%" height={14} />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <View key={i} style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <SkeletonBlock width={36} height={36} style={{ borderRadius: 18 }} />
+            <SkeletonBlock width="50%" height={14} />
           </View>
         ))}
       </View>
@@ -147,95 +116,54 @@ export function MatchDetailSkeleton() {
   );
 }
 
-/** Skeleton for profile screen */
 export function ProfileSkeleton() {
   return (
-    <View style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
-      <View style={{ alignItems: "center", paddingTop: 30, paddingBottom: 20 }}>
-        <SkeletonBlock width={100} height={100} borderRadius={50} />
-        <SkeletonBlock width={140} height={24} style={{ marginTop: 12 }} />
-        <SkeletonBlock width={200} height={14} style={{ marginTop: 8 }} />
-      </View>
-      <View style={skeletonStyles.statsRow}>
-        {[1, 2, 3].map((i) => (
-          <View key={i} style={{ alignItems: "center" }}>
-            <SkeletonBlock width={40} height={22} />
-            <SkeletonBlock width={50} height={13} style={{ marginTop: 6 }} />
+    <View style={{ padding: 20, gap: 16, alignItems: "center" }}>
+      <SkeletonBlock width={110} height={110} style={{ borderRadius: 55, marginTop: 20 }} />
+      <SkeletonBlock width={140} height={20} />
+      <SkeletonBlock width={90} height={13} />
+      <View style={{ flexDirection: "row", gap: 12, marginTop: 12, width: "100%" }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <View key={i} style={{ flex: 1, gap: 6, alignItems: "center", padding: 12, backgroundColor: colors.card, borderRadius: radius.md }}>
+            <SkeletonBlock width={32} height={32} style={{ borderRadius: 16 }} />
+            <SkeletonBlock width={32} height={20} />
+            <SkeletonBlock width={50} height={11} />
           </View>
         ))}
-      </View>
-      <View style={skeletonStyles.infoSection}>
-        <View style={skeletonStyles.infoRow}>
-          <SkeletonBlock width={50} height={15} />
-          <SkeletonBlock width={120} height={15} />
-        </View>
-        <View style={skeletonStyles.infoRow}>
-          <SkeletonBlock width={50} height={15} />
-          <SkeletonBlock width={100} height={15} />
-        </View>
       </View>
     </View>
   );
 }
 
-const skeletonStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardHeader: {
+const styles = StyleSheet.create({
+  matchCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    overflow: "hidden",
+    minHeight: 110,
   },
   userRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
+    borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
   },
   notifRow: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
     alignItems: "center",
+    backgroundColor: colors.card,
+    padding: 14,
+    borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
   },
-  detailSection: {
-    backgroundColor: "#fff",
+  section: {
+    backgroundColor: colors.card,
     padding: 16,
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "#fff",
-    paddingVertical: 20,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  infoSection: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
   },
 });

@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from sqlalchemy import or_
 
 from app import db
-from app.models.match import Match, MatchPlayer, JoinRequest
+from app.models.match import Match, MatchPlayer, JoinRequest, MatchPositionSlot, VALID_POSITIONS
 from app.models.friendship import MatchInvite
 from app.models.user import User
 from app.middleware.auth import token_required
@@ -64,10 +64,28 @@ def create_match():
     db.session.add(match)
     db.session.flush()  # get match.id
 
+    # Optional position slots
+    organizer_position = data.get("organizer_position")
+    position_slots_data = data.get("position_slots") or []
+    for ps in position_slots_data:
+        pos = ps.get("position")
+        count = int(ps.get("count") or 0)
+        if pos in VALID_POSITIONS and count > 0:
+            db.session.add(MatchPositionSlot(match_id=match.id, position=pos, total_slots=count, filled_slots=0))
+
     # Auto-add organizer as a player
     mp = MatchPlayer(match_id=match.id, user_id=g.user_id)
+    if organizer_position in VALID_POSITIONS:
+        mp.assigned_position = organizer_position
     db.session.add(mp)
+    db.session.flush()
     match.current_players = 1
+
+    # If organizer chose a position, increment the slot
+    if organizer_position in VALID_POSITIONS:
+        slot = MatchPositionSlot.query.filter_by(match_id=match.id, position=organizer_position).first()
+        if slot and slot.filled_slots < slot.total_slots:
+            slot.filled_slots += 1
 
     db.session.commit()
 
@@ -144,6 +162,42 @@ def list_matches():
     }), 200
 
 
+# ── GET /api/matches/nearby ──────────────────────────────────────────────────
+
+@bp.route("/nearby", methods=["GET"])
+@token_required
+def nearby_matches():
+    """Matches in the same city as the current user (or by ?city=...)."""
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 20, type=int), 50)
+
+    user = db.session.get(User, g.user_id)
+    city = request.args.get("city") or (user.city if user else None)
+
+    query = Match.query.filter(Match.status.in_(["open", "closed"]))
+    if city:
+        query = query.filter(Match.location.ilike(f"%{city}%"))
+
+    query = query.order_by(Match.date.asc(), Match.time.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    matches = []
+    for m in pagination.items:
+        d = m.to_dict()
+        d["organizer"] = db.session.get(User, m.organizer_id).to_public_dict()
+        matches.append(d)
+
+    return jsonify({
+        "data": {
+            "city": city,
+            "matches": matches,
+            "total": pagination.total,
+            "page": pagination.page,
+            "pages": pagination.pages,
+        }
+    }), 200
+
+
 # ── GET /api/matches/<id> ────────────────────────────────────────────────────
 
 @bp.route("/<int:match_id>", methods=["GET"])
@@ -164,6 +218,7 @@ def get_match(match_id):
             "id": player.id,
             "username": player.username,
             "profile_picture": player.profile_picture,
+            "assigned_position": mp.assigned_position,
             "joined_at": mp.joined_at.isoformat() + "Z" if mp.joined_at else None,
         })
 
@@ -175,6 +230,7 @@ def get_match(match_id):
             result["pending_requests"].append({
                 "id": jr.id,
                 "user": req_user.to_public_dict(),
+                "requested_position": jr.requested_position,
                 "created_at": jr.created_at.isoformat() + "Z" if jr.created_at else None,
             })
     else:
@@ -217,7 +273,18 @@ def join_match(match_id):
     if existing:
         return jsonify({"error": "already_requested", "message": "You already have a pending request for this match", "status": 400}), 400
 
-    jr = JoinRequest(match_id=match_id, user_id=g.user_id)
+    body = request.get_json(silent=True) or {}
+    requested_position = body.get("requested_position")
+    if requested_position is not None and requested_position not in VALID_POSITIONS:
+        requested_position = None
+
+    # If match has position slots defined and that position is full, reject
+    if requested_position:
+        slot = MatchPositionSlot.query.filter_by(match_id=match_id, position=requested_position).first()
+        if slot and slot.filled_slots >= slot.total_slots:
+            return jsonify({"error": "position_full", "message": "That position is already full", "status": 400}), 400
+
+    jr = JoinRequest(match_id=match_id, user_id=g.user_id, requested_position=requested_position)
     db.session.add(jr)
 
     requester = db.session.get(User, g.user_id)
@@ -292,9 +359,14 @@ def handle_join_request(match_id, request_id):
         return jsonify({"error": "match_full", "message": "Match is already full (12 players)", "status": 400}), 400
 
     jr.status = "approved"
-    mp = MatchPlayer(match_id=match_id, user_id=jr.user_id)
+    mp = MatchPlayer(match_id=match_id, user_id=jr.user_id, assigned_position=jr.requested_position)
     db.session.add(mp)
     match.current_players += 1
+    # increment slot count
+    if jr.requested_position:
+        slot = MatchPositionSlot.query.filter_by(match_id=match_id, position=jr.requested_position).first()
+        if slot and slot.filled_slots < slot.total_slots:
+            slot.filled_slots += 1
 
     create_notification(
         jr.user_id, "join_approved", "Request Approved",
@@ -381,6 +453,10 @@ def remove_player(match_id, user_id):
     if not mp:
         return jsonify({"error": "not_found", "message": "Player not found in this match", "status": 404}), 404
 
+    if mp.assigned_position:
+        slot = MatchPositionSlot.query.filter_by(match_id=match_id, position=mp.assigned_position).first()
+        if slot and slot.filled_slots > 0:
+            slot.filled_slots -= 1
     db.session.delete(mp)
     match.current_players -= 1
 
@@ -418,6 +494,10 @@ def leave_match(match_id):
     if not mp:
         return jsonify({"error": "not_player", "message": "You are not a player in this match", "status": 400}), 400
 
+    if mp.assigned_position:
+        slot = MatchPositionSlot.query.filter_by(match_id=match_id, position=mp.assigned_position).first()
+        if slot and slot.filled_slots > 0:
+            slot.filled_slots -= 1
     db.session.delete(mp)
     match.current_players -= 1
 
@@ -491,8 +571,9 @@ def invite_to_match(match_id):
     if not invitee_id:
         return jsonify({"error": "missing_fields", "message": "user_id is required", "status": 400}), 400
 
-    if not are_friends(g.user_id, invitee_id):
-        return jsonify({"error": "not_friends", "message": "You can only invite friends", "status": 403}), 403
+    invitee = db.session.get(User, invitee_id)
+    if not invitee:
+        return jsonify({"error": "not_found", "message": "User not found", "status": 404}), 404
 
     # Already a player?
     if MatchPlayer.query.filter_by(match_id=match_id, user_id=invitee_id).first():

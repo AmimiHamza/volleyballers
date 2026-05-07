@@ -89,9 +89,10 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const register = async (username, password, phone_number) => {
+  const register = async (username, password, phone_number, city) => {
     const body = { username, password };
     if (phone_number) body.phone_number = phone_number;
+    if (city) body.city = city;
     const res = await apiClient.post("/auth/register", body);
     const { access_token, refresh_token } = res.data.data;
     await storeTokens(access_token, refresh_token);

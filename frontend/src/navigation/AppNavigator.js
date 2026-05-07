@@ -1,44 +1,57 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { ActivityIndicator, View, Text, StyleSheet, Platform } from "react-native";
-import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
+import { ActivityIndicator, View, Platform } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { NavigationContainer, useNavigationContainerRef, DarkTheme } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
+import { useSocket } from "../contexts/SocketContext";
 import apiClient from "../api/client";
+import { colors } from "../theme";
 
-// Auth screens
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
-
-// Match screens
+import HomeScreen from "../screens/HomeScreen";
+import PlayersScreen from "../screens/PlayersScreen";
 import MatchListScreen from "../screens/matches/MatchListScreen";
 import MatchDetailScreen from "../screens/matches/MatchDetailScreen";
 import CreateMatchScreen from "../screens/matches/CreateMatchScreen";
 import RatePlayersScreen from "../screens/matches/RatePlayersScreen";
-
-// Friends screen (unified)
-import FriendsScreen from "../screens/friends/FriendsScreen";
-
-// Profile screens
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import EditProfileScreen from "../screens/profile/EditProfileScreen";
 import PublicProfileScreen from "../screens/profile/PublicProfileScreen";
 import MatchHistoryScreen from "../screens/profile/MatchHistoryScreen";
-
-// Other screens
 import NotificationsScreen from "../screens/notifications/NotificationsScreen";
+import ChatListScreen from "../screens/chat/ChatListScreen";
+import ChatConversationScreen from "../screens/chat/ChatConversationScreen";
 
 const AuthStack = createStackNavigator();
 const MainTab = createBottomTabNavigator();
+const HomeStack = createStackNavigator();
 const MatchStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
+const ChatStack = createStackNavigator();
 const RootStack = createStackNavigator();
 
+const navTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: colors.bg,
+    card: colors.bgElevated,
+    text: colors.text,
+    border: colors.border,
+    primary: colors.primary,
+  },
+};
+
 const headerStyle = {
-  headerStyle: { backgroundColor: "#FF6B35" },
-  headerTintColor: "#fff",
+  headerStyle: { backgroundColor: colors.bgElevated, shadowColor: "transparent", elevation: 0, borderBottomWidth: 0 },
+  headerTintColor: colors.text,
+  headerTitleStyle: { fontWeight: "700" },
 };
 
 function AuthNavigator() {
@@ -50,201 +63,171 @@ function AuthNavigator() {
   );
 }
 
+function HomeStackNavigator() {
+  const { t } = useTranslation();
+  return (
+    <HomeStack.Navigator screenOptions={headerStyle}>
+      <HomeStack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: t("notifications.title") }} />
+    </HomeStack.Navigator>
+  );
+}
+
 function MatchStackNavigator() {
+  const { t } = useTranslation();
   return (
     <MatchStack.Navigator screenOptions={headerStyle}>
-      <MatchStack.Screen name="MatchList" component={MatchListScreen} options={{ title: "Matches" }} />
-      <MatchStack.Screen name="MatchDetail" component={MatchDetailScreen} options={{ title: "Match Details" }} />
-      <MatchStack.Screen name="CreateMatch" component={CreateMatchScreen} options={{ title: "New Match" }} />
-      <MatchStack.Screen name="RatePlayers" component={RatePlayersScreen} options={{ title: "Rate Players" }} />
+      <MatchStack.Screen name="MatchList" component={MatchListScreen} options={{ title: t("nav.matches") }} />
+      <MatchStack.Screen name="MatchDetail" component={MatchDetailScreen} options={{ title: t("matches.matchDetails") }} />
+      <MatchStack.Screen name="CreateMatch" component={CreateMatchScreen} options={{ title: t("matches.newMatch") }} />
+      <MatchStack.Screen name="RatePlayers" component={RatePlayersScreen} options={{ title: t("matches.ratePlayers") }} />
     </MatchStack.Navigator>
   );
 }
 
+function ChatStackNavigator() {
+  return (
+    <ChatStack.Navigator screenOptions={{ ...headerStyle, headerShown: false }}>
+      <ChatStack.Screen name="ChatList" component={ChatListScreen} />
+      <ChatStack.Screen
+        name="ChatConversation"
+        component={ChatConversationScreen}
+        options={{ headerShown: true, title: "Chat" }}
+      />
+    </ChatStack.Navigator>
+  );
+}
+
 function ProfileStackNavigator() {
+  const { t } = useTranslation();
   return (
     <ProfileStack.Navigator screenOptions={headerStyle}>
-      <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: "Profile" }} />
-      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
-      <ProfileStack.Screen name="MatchHistory" component={MatchHistoryScreen} options={{ title: "Match History" }} />
+      <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: t("nav.profile") }} />
+      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: t("profile.editProfile") }} />
+      <ProfileStack.Screen name="MatchHistory" component={MatchHistoryScreen} options={{ title: t("history.title") }} />
     </ProfileStack.Navigator>
   );
 }
 
 function MainTabNavigator() {
-  const [unreadCount, setUnreadCount] = useState(0);
-  const pollRef = useRef(null);
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const [unreadChat, setUnreadChat] = useState(0);
+  const { onMessage } = useSocket() || {};
 
   const fetchUnread = useCallback(async () => {
     try {
-      const res = await apiClient.get("/notifications?page=1&per_page=1");
-      setUnreadCount(res.data.data.unread_count || 0);
-    } catch {
-      // silent
-    }
+      const res = await apiClient.get("/messages/unread-count");
+      setUnreadChat(res.data.data.count || 0);
+    } catch { }
   }, []);
 
   useEffect(() => {
     fetchUnread();
-    pollRef.current = setInterval(fetchUnread, 8000);
-    return () => clearInterval(pollRef.current);
+    const id = setInterval(fetchUnread, 15000);
+    return () => clearInterval(id);
   }, [fetchUnread]);
+
+  useEffect(() => {
+    if (!onMessage) return;
+    const unsub = onMessage(() => fetchUnread());
+    return unsub;
+  }, [onMessage, fetchUnread]);
 
   return (
     <MainTab.Navigator
       screenOptions={({ route }) => ({
-        tabBarActiveTintColor: "#FF6B35",
-        tabBarInactiveTintColor: "#999",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopWidth: 0,
-          elevation: 20,
+          backgroundColor: colors.bgElevated,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          elevation: 24,
           shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
-          paddingTop: 8,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: 0.5,
+          shadowRadius: 16,
+          height: 64 + insets.bottom + 12,
+          paddingBottom: insets.bottom + 12,
+          paddingTop: 10,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-          marginTop: 2,
-        },
-        tabBarIconStyle: {
-          marginBottom: -2,
-        },
-        tabBarIcon: ({ focused, color, size }) => {
-          if (route.name === "MatchesTab") {
-            return (
-              <MaterialCommunityIcons
-                name={focused ? "volleyball" : "volleyball"}
-                size={24}
-                color={color}
-              />
-            );
-          }
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", marginTop: 3, letterSpacing: 0.2, paddingBottom: 2 },
+        tabBarIcon: ({ focused, color }) => {
           let iconName;
-          if (route.name === "FriendsTab") {
-            iconName = focused ? "people" : "people-outline";
-          } else if (route.name === "Notifications") {
-            iconName = focused ? "notifications" : "notifications-outline";
-          } else if (route.name === "ProfileTab") {
-            iconName = focused ? "person-circle" : "person-circle-outline";
+          if (route.name === "HomeTab") iconName = focused ? "home" : "home-outline";
+          else if (route.name === "MatchesTab") {
+            return <MaterialCommunityIcons name="volleyball" size={24} color={color} />;
           }
+          else if (route.name === "PlayersTab") iconName = focused ? "people" : "people-outline";
+          else if (route.name === "ChatTab") iconName = focused ? "chatbubbles" : "chatbubbles-outline";
+          else if (route.name === "ProfileTab") iconName = focused ? "person-circle" : "person-circle-outline";
           return <Ionicons name={iconName} size={24} color={color} />;
         },
       })}
     >
+      <MainTab.Screen name="HomeTab" component={HomeStackNavigator} options={{ tabBarLabel: t("nav.home") }} />
       <MainTab.Screen
         name="MatchesTab"
         component={MatchStackNavigator}
-        options={{ tabBarLabel: "Matches" }}
-      />
-      <MainTab.Screen
-        name="FriendsTab"
-        component={FriendsScreen}
-        options={{
-          tabBarLabel: "Friends",
-          headerShown: false,
-        }}
-      />
-      <MainTab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{
-          tabBarLabel: "Alerts",
-          headerShown: true,
-          ...headerStyle,
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: "#FF6B35",
-            fontSize: 10,
-            fontWeight: "700",
-            minWidth: 18,
-            height: 18,
-            lineHeight: 18,
+        options={{ tabBarLabel: t("nav.matches") }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate("MatchesTab", { screen: "MatchList" });
           },
-        }}
-        listeners={{
-          focus: () => setUnreadCount(0),
-        }}
+        })}
       />
+      <MainTab.Screen name="PlayersTab" component={PlayersScreen} options={{ tabBarLabel: t("nav.players") }} />
       <MainTab.Screen
-        name="ProfileTab"
-        component={ProfileStackNavigator}
-        options={{ tabBarLabel: "Profile" }}
+        name="ChatTab"
+        component={ChatStackNavigator}
+        options={{
+          tabBarLabel: t("nav.chat"),
+          tabBarBadge: unreadChat > 0 ? unreadChat : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10, fontWeight: "700" },
+        }}
       />
+      <MainTab.Screen name="ProfileTab" component={ProfileStackNavigator} options={{ tabBarLabel: t("nav.profile") }} />
     </MainTab.Navigator>
   );
 }
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { t } = useTranslation();
   const navigationRef = useNavigationContainerRef();
   const responseListener = useRef();
 
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        if (!data || !navigationRef.isReady()) return;
-
-        const { reference_type, reference_id } = data;
-        if (reference_type === "match" && reference_id) {
-          navigationRef.navigate("Main", {
-            screen: "MatchesTab",
-            params: {
-              screen: "MatchDetail",
-              params: { matchId: reference_id },
-            },
-          });
-        } else if (reference_type === "user" && reference_id) {
-          navigationRef.navigate("PublicProfile", { userId: reference_id });
-        } else if (reference_type === "friend_request") {
-          navigationRef.navigate("Main", {
-            screen: "FriendsTab",
-          });
-        }
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (!data || !navigationRef.isReady()) return;
+      const { reference_type, reference_id } = data;
+      if (reference_type === "match" && reference_id) {
+        navigationRef.navigate("Main", { screen: "MatchesTab", params: { screen: "MatchDetail", params: { matchId: reference_id } } });
+      } else if (reference_type === "user" && reference_id) {
+        navigationRef.navigate("PublicProfile", { userId: reference_id });
       }
-    );
-
-    return () => {
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-    };
+    });
+    return () => { if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current); };
   }, [isAuthenticated]);
 
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>
             <RootStack.Screen name="Main" component={MainTabNavigator} />
-            <RootStack.Screen
-              name="PublicProfile"
-              component={PublicProfileScreen}
-              options={{ headerShown: true, title: "Player Profile", ...headerStyle }}
-            />
+            <RootStack.Screen name="PublicProfile" component={PublicProfileScreen} options={{ headerShown: true, title: t("profile.playerProfile"), ...headerStyle }} />
           </>
         ) : (
           <RootStack.Screen name="Auth" component={AuthNavigator} />

@@ -1,167 +1,138 @@
-import React from "react";
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { showConfirm } from "../../utils/alert";
-import { ProfileSkeleton } from "../../components/Skeleton";
-import { API_BASE_URL } from "../../config/server";
+import LanguagePickerModal from "../../components/LanguagePickerModal";
+import Avatar from "../../components/Avatar";
+import PressableScale from "../../components/PressableScale";
+import AnimatedEntry from "../../components/AnimatedEntry";
+import { colors, radius, shadows } from "../../theme";
 
-const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=128";
+const LANGUAGE_NAMES = { en: "English", fr: "Français", ar: "العربية" };
 
 export default function ProfileScreen({ navigation }) {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const { language } = useLanguage();
+  const [langModalVisible, setLangModalVisible] = useState(false);
 
   const handleLogout = () => {
-    showConfirm("Logout", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Log Out", style: "destructive", onPress: logout },
+    showConfirm(t("auth.logout"), t("auth.logoutConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("auth.logout"), style: "destructive", onPress: logout },
     ]);
   };
 
-  if (!user) return <ProfileSkeleton />;
-
-  const avatarUri = user.profile_picture
-    ? `${API_BASE_URL.replace("/api", "")}${user.profile_picture}`
-    : DEFAULT_AVATAR;
+  if (!user) return null;
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Image source={{ uri: avatarUri }} style={styles.avatar} />
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+      {/* Gradient header */}
+      <LinearGradient
+        colors={[colors.primary + "30", colors.bg]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.headerBg}
+      />
+
+      <AnimatedEntry style={styles.header}>
+        <Avatar uri={user.profile_picture} name={user.username} size={110} ring ringColor={colors.primary} />
         <Text style={styles.username}>{user.username}</Text>
-        {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{user.total_matches}</Text>
-          <Text style={styles.statLabel}>Matches</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>
-            {user.average_rating ? user.average_rating.toFixed(1) : "N/A"}
-          </Text>
-          <Text style={styles.statLabel}>Rating</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{user.total_ratings}</Text>
-          <Text style={styles.statLabel}>Reviews</Text>
-        </View>
-      </View>
-
-      <View style={styles.infoSection}>
-        {user.phone_number ? (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Phone</Text>
-            <Text style={styles.infoValue}>{user.phone_number}</Text>
+        {user.city && (
+          <View style={styles.locationRow}>
+            <Ionicons name="location" size={13} color={colors.textMuted} />
+            <Text style={styles.locationText}>{user.city}</Text>
           </View>
-        ) : null}
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Joined</Text>
-          <Text style={styles.infoValue}>
-            {user.created_at
-              ? new Date(user.created_at).toLocaleDateString()
-              : "—"}
-          </Text>
+        )}
+        {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
+      </AnimatedEntry>
+
+      <AnimatedEntry delay={120}>
+        <View style={styles.statsRow}>
+          <Stat label={t("profile.matches")} value={user.total_matches} icon="trophy" />
+          <View style={styles.statSep} />
+          <Stat label={t("profile.rating")} value={user.average_rating ? user.average_rating.toFixed(1) : "—"} icon="star" highlight />
+          <View style={styles.statSep} />
+          <Stat label={t("profile.reviews")} value={user.total_ratings} icon="chatbox" />
         </View>
-      </View>
+      </AnimatedEntry>
 
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => navigation.navigate("EditProfile")}
-      >
-        <Text style={styles.editButtonText}>Edit Profile</Text>
-      </TouchableOpacity>
+      <AnimatedEntry delay={200}>
+        <View style={styles.menuSection}>
+          <MenuRow icon="person-outline" label={t("profile.editProfile")} onPress={() => navigation.navigate("EditProfile")} />
+          <MenuRow icon="time-outline" label={t("profile.matchHistory")} onPress={() => navigation.navigate("MatchHistory")} />
+          <MenuRow icon="globe-outline" label={t("language.language")} value={LANGUAGE_NAMES[language] || language} onPress={() => setLangModalVisible(true)} />
+          <MenuRow icon="log-out-outline" label={t("auth.logout")} onPress={handleLogout} danger />
+        </View>
+      </AnimatedEntry>
 
-      <TouchableOpacity
-        style={styles.historyButton}
-        onPress={() => navigation.navigate("MatchHistory")}
-      >
-        <Text style={styles.historyButtonText}>Match History</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Log Out</Text>
-      </TouchableOpacity>
+      <LanguagePickerModal visible={langModalVisible} onDismiss={() => setLangModalVisible(false)} />
     </ScrollView>
   );
 }
 
+function Stat({ label, value, icon, highlight }) {
+  return (
+    <View style={styles.stat}>
+      <View style={[styles.statIconWrap, highlight && { backgroundColor: colors.primarySoftStrong }]}>
+        <Ionicons name={icon} size={16} color={highlight ? colors.primary : colors.textMuted} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function MenuRow({ icon, label, value, onPress, danger }) {
+  return (
+    <PressableScale onPress={onPress} style={styles.menuRow}>
+      <View style={[styles.menuIconWrap, danger && { backgroundColor: colors.dangerSoft }]}>
+        <Ionicons name={icon} size={18} color={danger ? colors.danger : colors.primary} />
+      </View>
+      <Text style={[styles.menuLabel, danger && { color: colors.danger }]}>{label}</Text>
+      {value && <Text style={styles.menuValue}>{value}</Text>}
+      {!danger && <Ionicons name="chevron-forward" size={16} color={colors.textDim} />}
+    </PressableScale>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  header: { alignItems: "center", paddingTop: 30, paddingBottom: 20 },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#ddd",
-    marginBottom: 12,
-  },
-  username: { fontSize: 24, fontWeight: "bold", color: "#333" },
-  bio: { fontSize: 14, color: "#666", marginTop: 6, paddingHorizontal: 40, textAlign: "center" },
+  container: { flex: 1, backgroundColor: colors.bg },
+  headerBg: { position: "absolute", left: 0, right: 0, top: 0, height: 280 },
+  header: { alignItems: "center", paddingTop: 36, paddingBottom: 20 },
+  username: { fontSize: 24, fontWeight: "800", color: colors.text, marginTop: 14, letterSpacing: -0.3 },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  locationText: { color: colors.textMuted, fontSize: 13 },
+  bio: { fontSize: 14, color: colors.textMuted, marginTop: 8, paddingHorizontal: 40, textAlign: "center" },
+
   statsRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "#fff",
-    paddingVertical: 20,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 20,
+    backgroundColor: colors.card,
+    marginHorizontal: 16,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    borderWidth: 1, borderColor: colors.border,
+    ...shadows.sm,
   },
-  stat: { alignItems: "center" },
-  statValue: { fontSize: 22, fontWeight: "bold", color: "#FF6B35" },
-  statLabel: { fontSize: 13, color: "#888", marginTop: 4 },
-  infoSection: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+  stat: { flex: 1, alignItems: "center", gap: 4 },
+  statIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.bgElevated, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
+  statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: "700" },
+  statSep: { width: 1, backgroundColor: colors.border, marginVertical: 8 },
+
+  menuSection: { marginHorizontal: 16, marginTop: 18, gap: 8 },
+  menuRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    paddingHorizontal: 14, paddingVertical: 14,
+    borderWidth: 1, borderColor: colors.border,
   },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  infoLabel: { fontSize: 15, color: "#888" },
-  infoValue: { fontSize: 15, color: "#333" },
-  editButton: {
-    backgroundColor: "#FF6B35",
-    marginHorizontal: 20,
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  editButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  historyButton: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#FF6B35",
-    marginBottom: 12,
-  },
-  historyButtonText: { color: "#FF6B35", fontSize: 16, fontWeight: "600" },
-  logoutButton: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e74c3c",
-    marginBottom: 40,
-  },
-  logoutButtonText: { color: "#e74c3c", fontSize: 16, fontWeight: "600" },
+  menuIconWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  menuLabel: { color: colors.text, fontSize: 15, fontWeight: "600", flex: 1 },
+  menuValue: { color: colors.textMuted, fontSize: 13, marginRight: 6 },
 });

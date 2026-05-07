@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from app import db
 
+VALID_POSITIONS = ["setter", "opposite", "middle_blocker", "libero", "outside_hitter"]
+
 
 class Match(db.Model):
     __tablename__ = "matches"
@@ -27,6 +29,7 @@ class Match(db.Model):
     organizer = db.relationship("User", backref="organized_matches", lazy=True)
     players = db.relationship("MatchPlayer", backref="match", lazy=True)
     join_requests = db.relationship("JoinRequest", backref="match", lazy=True)
+    position_slots = db.relationship("MatchPositionSlot", backref="match", lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -43,6 +46,10 @@ class Match(db.Model):
             "current_players": self.current_players,
             "created_at": self.created_at.isoformat() + "Z" if self.created_at else None,
             "updated_at": self.updated_at.isoformat() + "Z" if self.updated_at else None,
+            "position_slots": [
+                {"position": ps.position, "total_slots": ps.total_slots, "filled_slots": ps.filled_slots}
+                for ps in self.position_slots
+            ],
         }
 
 
@@ -53,6 +60,7 @@ class MatchPlayer(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     match_id = db.Column(db.Integer, db.ForeignKey("matches.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    assigned_position = db.Column(db.String(20), nullable=True)
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = db.relationship("User", backref="match_participations", lazy=True)
@@ -64,8 +72,20 @@ class JoinRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     match_id = db.Column(db.Integer, db.ForeignKey("matches.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    requested_position = db.Column(db.String(20), nullable=True)
     status = db.Column(db.String(20), default="pending")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = db.Column(db.DateTime, nullable=True)
 
     user = db.relationship("User", backref="join_requests", lazy=True)
+
+
+class MatchPositionSlot(db.Model):
+    __tablename__ = "match_position_slots"
+    __table_args__ = (db.UniqueConstraint("match_id", "position"),)
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    match_id = db.Column(db.Integer, db.ForeignKey("matches.id"), nullable=False)
+    position = db.Column(db.String(20), nullable=False)
+    total_slots = db.Column(db.Integer, nullable=False)
+    filled_slots = db.Column(db.Integer, default=0)

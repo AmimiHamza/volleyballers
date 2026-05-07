@@ -1,1 +1,6 @@
-export const API_BASE_URL = "http://34.175.152.148/api";
+import config from "../../../shared/config.json";
+
+const { host, port, protocol } = config.server;
+const portPart = port === 80 || port === 443 ? "" : `:${port}`;
+
+export const API_BASE_URL = `${protocol}://${host}${portPart}/api`;

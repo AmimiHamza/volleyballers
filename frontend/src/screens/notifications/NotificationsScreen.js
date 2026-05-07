@@ -1,88 +1,65 @@
 import React, { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  Image,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+import { View, Text, FlatList, StyleSheet, RefreshControl } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import apiClient from "../../api/client";
 import usePolling from "../../hooks/usePolling";
-import { API_BASE_URL } from "../../config/server";
+import { colors, radius } from "../../theme";
+import Avatar from "../../components/Avatar";
+import PressableScale from "../../components/PressableScale";
+import AnimatedEntry from "../../components/AnimatedEntry";
 import { NotificationListSkeleton } from "../../components/Skeleton";
 
-const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=V&background=FF6B35&color=fff&size=64";
-
-function avatarUrl(pic) {
-  return pic ? `${API_BASE_URL.replace("/api", "")}${pic}` : DEFAULT_AVATAR;
-}
-
-const TYPE_LABELS = {
-  join_request: "Join Request",
-  join_approved: "Approved",
-  join_rejected: "Rejected",
-  player_removed: "Removed",
-  player_left: "Player Left",
-  match_invite: "Invitation",
-  match_closed: "Match Closed",
-  match_cancelled: "Cancelled",
-  match_completed: "Completed",
-  friend_request: "Friend Request",
-  friend_accepted: "Friend Accepted",
-  new_rating: "New Rating",
+const TYPE_META = {
+  join_request:    { color: colors.primary, icon: "person-add" },
+  join_approved:   { color: colors.success, icon: "checkmark-circle" },
+  join_rejected:   { color: colors.danger,  icon: "close-circle" },
+  player_removed:  { color: colors.danger,  icon: "remove-circle" },
+  player_left:     { color: colors.warning, icon: "exit-outline" },
+  match_invite:    { color: colors.accent,  icon: "mail-outline" },
+  match_closed:    { color: colors.warning, icon: "lock-closed" },
+  match_cancelled: { color: colors.danger,  icon: "ban" },
+  match_completed: { color: colors.info,    icon: "trophy" },
+  friend_request:  { color: colors.primary, icon: "person-add-outline" },
+  friend_accepted: { color: colors.success, icon: "people" },
+  new_rating:      { color: colors.warning, icon: "star" },
 };
 
-const TYPE_COLORS = {
-  join_approved: "#27ae60",
-  friend_accepted: "#27ae60",
-  join_rejected: "#e74c3c",
-  player_removed: "#e74c3c",
-  match_cancelled: "#e74c3c",
-  match_completed: "#3498db",
-  new_rating: "#f39c12",
-};
-
-function NotificationItem({ item, onPress }) {
-  const color = TYPE_COLORS[item.type] || "#FF6B35";
-  const actor = item.actor;
+function NotificationItem({ item, onPress, t, index }) {
+  const meta = TYPE_META[item.type] || { color: colors.primary, icon: "notifications" };
+  const typeLabel = t(`notifications.types.${item.type}`, { defaultValue: item.type });
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => onPress(item)}
-      activeOpacity={0.7}
-    >
-      <Image
-        source={{ uri: actor ? avatarUrl(actor.profile_picture) : DEFAULT_AVATAR }}
-        style={styles.avatar}
-      />
-      <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <Text style={[styles.typeLabel, { color }]}>{TYPE_LABELS[item.type] || item.type}</Text>
-          <Text style={styles.time}>{formatTime(item.created_at)}</Text>
+    <AnimatedEntry delay={index * 30}>
+      <PressableScale onPress={() => onPress(item)} style={styles.card}>
+        <View style={[styles.iconCircle, { backgroundColor: meta.color + "26" }]}>
+          <Ionicons name={meta.icon} size={20} color={meta.color} />
         </View>
-        <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-      </View>
-    </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.typeLabel, { color: meta.color }]}>{typeLabel}</Text>
+            <Text style={styles.time}>{formatTime(item.created_at, t)}</Text>
+          </View>
+          <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
+        </View>
+        {item.actor && <Avatar uri={item.actor.profile_picture} name={item.actor.username || "?"} size={32} />}
+      </PressableScale>
+    </AnimatedEntry>
   );
 }
 
-function formatTime(iso) {
+function formatTime(iso, t) {
   if (!iso) return "";
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = (now - d) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return d.toLocaleDateString();
+  const diff = (new Date() - new Date(iso)) / 1000;
+  if (diff < 60) return t("notifications.justNow");
+  if (diff < 3600) return t("notifications.minutesAgo", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("notifications.hoursAgo", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t("notifications.daysAgo", { count: Math.floor(diff / 86400) });
+  return new Date(iso).toLocaleDateString();
 }
 
 export default function NotificationsScreen({ navigation }) {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,109 +70,73 @@ export default function NotificationsScreen({ navigation }) {
     try {
       const res = await apiClient.get(`/notifications?page=${p}&per_page=20`);
       const data = res.data.data;
-      if (append) {
-        setNotifications((prev) => [...prev, ...data.notifications]);
-      } else {
-        setNotifications(data.notifications);
-      }
+      if (append) setNotifications((prev) => [...prev, ...data.notifications]);
+      else setNotifications(data.notifications);
       setHasMore(data.page < data.pages);
       setPage(p);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    } catch { } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  // Mark all as read + fetch when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      // Mark all read silently, then fetch
-      apiClient.put("/notifications/read-all").catch(() => {});
-      fetchNotifications(1);
-    }, [fetchNotifications])
-  );
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    apiClient.put("/notifications/read-all").catch(() => {});
+    fetchNotifications(1);
+  }, [fetchNotifications]));
 
-  // Silent poll every 10s
   usePolling(() => fetchNotifications(1), 10000);
 
   const handlePress = (item) => {
     if (item.reference_type === "match" && item.reference_id) {
-      navigation.navigate("MatchesTab", {
-        screen: "MatchDetail",
-        params: { matchId: item.reference_id },
-      });
+      navigation.getParent()?.navigate("MatchesTab", { screen: "MatchDetail", params: { matchId: item.reference_id } });
     } else if (item.reference_type === "user" && item.reference_id) {
-      navigation.navigate("PublicProfile", { userId: item.reference_id });
-    } else if (item.reference_type === "friend_request") {
-      navigation.navigate("FriendsTab");
+      navigation.getParent()?.getParent()?.navigate("PublicProfile", { userId: item.reference_id });
     }
   };
-
-  const loadMore = () => {
-    if (hasMore && !loading) {
-      fetchNotifications(page + 1, true);
-    }
-  };
-
-  if (loading && notifications.length === 0) {
-    return (
-      <View style={styles.container}>
-        <NotificationListSkeleton />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <NotificationItem item={item} onPress={handlePress} />}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); fetchNotifications(1); }}
-            tintColor="#FF6B35"
-          />
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          <View style={styles.centered}>
-            <Text style={styles.emptyText}>No notifications yet</Text>
-          </View>
-        }
-        contentContainerStyle={notifications.length === 0 ? { flex: 1 } : undefined}
-      />
+      {loading && notifications.length === 0 ? (
+        <NotificationListSkeleton />
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item, index }) => <NotificationItem item={item} onPress={handlePress} t={t} index={index} />}
+          contentContainerStyle={notifications.length === 0 ? styles.empty : { padding: 12, gap: 8 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNotifications(1); }} tintColor={colors.primary} />}
+          onEndReached={() => { if (hasMore && !loading) fetchNotifications(page + 1, true); }}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="notifications-off-outline" size={36} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyText}>{t("notifications.noNotifications")}</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: colors.bg },
   card: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
+    flexDirection: "row", gap: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
     padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderWidth: 1, borderColor: colors.border,
     alignItems: "center",
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#ddd",
-    marginRight: 12,
-  },
-  cardContent: { flex: 1 },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  typeLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
-  time: { fontSize: 12, color: "#aaa" },
-  message: { fontSize: 14, color: "#333", lineHeight: 20 },
-  emptyText: { fontSize: 16, color: "#999" },
+  typeLabel: { fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
+  time: { fontSize: 11, color: colors.textDim },
+  message: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  empty: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyState: { alignItems: "center", gap: 12, paddingTop: 80 },
+  emptyIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  emptyText: { fontSize: 15, color: colors.textMuted },
 });

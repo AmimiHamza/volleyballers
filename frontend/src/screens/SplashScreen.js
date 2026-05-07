@@ -9,6 +9,7 @@ import {
   StatusBar,
   Platform,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 
 // Only import expo-av on native (it breaks on web)
 let Video, ResizeMode;
@@ -59,6 +60,7 @@ function NativeVideo({ onLoad }) {
 }
 
 export default function SplashScreen({ onFinish }) {
+  const { t } = useTranslation();
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const videoOpacity = useRef(new Animated.Value(0)).current;
@@ -121,7 +123,7 @@ export default function SplashScreen({ onFinish }) {
     };
   }, []);
 
-  // Once video is loaded, play for 3 seconds then finish
+  // Once video is loaded, play for 5 seconds then finish
   useEffect(() => {
     if (!videoReady) return;
     const timer = setTimeout(() => {
@@ -166,7 +168,7 @@ export default function SplashScreen({ onFinish }) {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>VolleyConnect</Text>
+        <Text style={styles.appName}>{t("splash.appName")}</Text>
       </Animated.View>
 
       {/* Bottom section: video + loading text */}
@@ -180,7 +182,7 @@ export default function SplashScreen({ onFinish }) {
         </View>
 
         <Animated.Text style={[styles.loadingText, { opacity: textPulse }]}>
-          Loading{DOTS[dotIndex]}
+          {t("splash.loading")}{DOTS[dotIndex]}
         </Animated.Text>
       </Animated.View>
     </Animated.View>
