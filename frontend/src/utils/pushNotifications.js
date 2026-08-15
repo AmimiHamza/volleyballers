@@ -49,11 +49,19 @@ export async function registerForPushNotifications() {
     return null;
   }
 
-  // Get the Expo push token
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId: "volleyup",
-  });
-  const pushToken = tokenData.data;
+  // Get the Expo push token. This throws when the build has no FCM credentials
+  // (no google-services.json), so treat it as "push unavailable" rather than
+  // letting it reject into the callers, which don't catch.
+  let pushToken;
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: "volleyup",
+    });
+    pushToken = tokenData.data;
+  } catch (err) {
+    console.warn("Push token unavailable (missing FCM credentials?):", err.message);
+    return null;
+  }
 
   // Send token to backend
   try {
