@@ -76,7 +76,7 @@ jobs:
       # Metaspace" and then wedged for ~2h. The Expo template ships a small
       # metaspace cap, and these must be set in gradle.properties — passing
       # -Dorg.gradle.jvmargs on the CLI does not configure the daemon JVM.
-      - name: Raise Gradle/Kotlin memory limits
+      - name: Tune generated Gradle project
         run: |
           cat >> frontend/android/gradle.properties <<'PROPS'
 
@@ -86,13 +86,26 @@ jobs:
           kotlin.compiler.execution.strategy=in-process
           org.gradle.parallel=false
           PROPS
+
+          # Turn release lint off at the source. Excluding the lintVital* tasks
+          # with -x does not work: lintVitalRelease consumes files that
+          # lintVitalReportRelease produces, so it then fails on missing inputs.
+          cat >> frontend/android/app/build.gradle <<'GRADLE'
+
+          // --- CI override: release lint is not useful for a test APK ---
+          android {
+              lint {
+                  checkReleaseBuilds false
+                  abortOnError false
+              }
+          }
+          GRADLE
           tail -8 frontend/android/gradle.properties
 
       - name: Build release APK
         working-directory: frontend/android
         #  --console=plain  rich console buffers output in CI and looks hung
         #  arm64-v8a only   one ABI instead of four; covers all modern phones
-        #  -x lintVital*    release lint is slow and was also failing on memory
         timeout-minutes: 45
         run: |
           chmod +x gradlew
@@ -100,9 +113,7 @@ jobs:
             --console=plain \
             --no-daemon \
             --stacktrace \
-            -PreactNativeArchitectures=arm64-v8a \
-            -x lintVitalAnalyzeRelease \
-            -x lintVitalReportRelease
+            -PreactNativeArchitectures=arm64-v8a
 
       - name: Locate APK
         id: apk
