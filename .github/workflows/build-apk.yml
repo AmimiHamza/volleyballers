@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to publish the APK as a release asset
 
     steps:
       - name: Checkout code
@@ -70,11 +72,46 @@ jobs:
           echo "=== AndroidManifest.xml (application tag) ==="
           grep -A2 "<application" frontend/android/app/src/main/AndroidManifest.xml
 
+      # Run 31885528037 died with "kspReleaseKotlin FAILED: OutOfMemoryError:
+      # Metaspace" and then wedged for ~2h. The Expo template ships a small
+      # metaspace cap, and these must be set in gradle.properties — passing
+      # -Dorg.gradle.jvmargs on the CLI does not configure the daemon JVM.
+      - name: Raise Gradle/Kotlin memory limits
+        run: |
+          cat >> frontend/android/gradle.properties <<'PROPS'
+
+          # --- CI overrides (later keys win) ---
+          org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=2g
+          kotlin.daemon.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g
+          kotlin.compiler.execution.strategy=in-process
+          org.gradle.parallel=false
+          PROPS
+          tail -8 frontend/android/gradle.properties
+
       - name: Build release APK
         working-directory: frontend/android
+        #  --console=plain  rich console buffers output in CI and looks hung
+        #  arm64-v8a only   one ABI instead of four; covers all modern phones
+        #  -x lintVital*    release lint is slow and was also failing on memory
+        timeout-minutes: 45
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease \
+            --console=plain \
+            --no-daemon \
+            --stacktrace \
+            -PreactNativeArchitectures=arm64-v8a \
+            -x lintVitalAnalyzeRelease \
+            -x lintVitalReportRelease
+
+      - name: Locate APK
+        id: apk
+        run: |
+          set -e
+          APK=$(find frontend/android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          [ -n "$APK" ] || { echo "No APK produced"; exit 1; }
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -82,3 +119,14 @@ jobs:
           name: VolleyUp
           path: frontend/android/app/build/outputs/apk/release/*.apk
           retention-days: 90
+
+      # Direct-download link that works on a phone, no GitHub login needed
+      - name: Publish APK to a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="build-${GITHUB_RUN_NUMBER}"
+          cp "${{ steps.apk.outputs.path }}" "VolleyConnect-${TAG}.apk"
+          gh release create "$TAG" "VolleyConnect-${TAG}.apk" \
+            --title "VolleyConnect $TAG" \
+            --notes "Automated build of \`${GITHUB_SHA:0:7}\`. API: $(python3 -c "import json;c=json.load(open('shared/config.json'))['server'];print(f\"{c['protocol']}://{c['host']}\")")"
