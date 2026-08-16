@@ -20,7 +20,7 @@ def create_app():
 
     from .models import user, match, friendship, rating, notification, device_push_token, message  # noqa: F401
 
-    from .routes import auth, matches, friends, ratings, notifications, push_tokens, users, messages
+    from .routes import auth, matches, friends, ratings, notifications, push_tokens, users, messages, client_errors
     app.register_blueprint(auth.bp, url_prefix="/api/auth")
     app.register_blueprint(matches.bp, url_prefix="/api/matches")
     app.register_blueprint(friends.bp, url_prefix="/api/friends")
@@ -29,6 +29,7 @@ def create_app():
     app.register_blueprint(push_tokens.bp, url_prefix="/api/push-tokens")
     app.register_blueprint(users.bp, url_prefix="/api/users")
     app.register_blueprint(messages.bp, url_prefix="/api/messages")
+    app.register_blueprint(client_errors.bp, url_prefix="/api/client-errors")
 
     @app.route("/uploads/<path:filename>")
     def serve_upload(filename):
