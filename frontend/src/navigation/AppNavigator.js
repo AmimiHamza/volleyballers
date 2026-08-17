@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationContainer, useNavigationContainerRef, DarkTheme } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useSocket } from "../contexts/SocketContext";
@@ -200,22 +199,10 @@ export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   const { t } = useTranslation();
   const navigationRef = useNavigationContainerRef();
-  const responseListener = useRef();
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (!data || !navigationRef.isReady()) return;
-      const { reference_type, reference_id } = data;
-      if (reference_type === "match" && reference_id) {
-        navigationRef.navigate("Main", { screen: "MatchesTab", params: { screen: "MatchDetail", params: { matchId: reference_id } } });
-      } else if (reference_type === "user" && reference_id) {
-        navigationRef.navigate("PublicProfile", { userId: reference_id });
-      }
-    });
-    return () => { if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current); };
-  }, [isAuthenticated]);
+  // The push-notification tap handler lived here. It is removed along with
+  // expo-notifications — see src/utils/pushNotifications.js for how to restore
+  // it once a Firebase project exists.
 
   if (isLoading) {
     return <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}><ActivityIndicator size="large" color={colors.primary} /></View>;

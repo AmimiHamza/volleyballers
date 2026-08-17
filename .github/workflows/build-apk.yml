@@ -72,6 +72,23 @@ jobs:
           echo "=== AndroidManifest.xml (application tag) ==="
           grep -A2 "<application" frontend/android/app/src/main/AndroidManifest.xml
 
+          # Firebase without google-services.json is a guaranteed startup crash:
+          # FirebaseInitProvider runs before any JS and throws when google_app_id
+          # is absent. Fail the build here rather than shipping a dead APK.
+          echo ""
+          echo "=== Firebase consistency check ==="
+          if grep -q "FirebaseInitProvider" frontend/android/app/src/main/AndroidManifest.xml; then
+            if [ -f frontend/android/app/google-services.json ]; then
+              echo "OK: Firebase present and configured"
+            else
+              echo "FATAL: manifest registers FirebaseInitProvider but there is no"
+              echo "google-services.json. The app would crash at process start."
+              exit 1
+            fi
+          else
+            echo "OK: no Firebase in manifest"
+          fi
+
       # Run 31885528037 died with "kspReleaseKotlin FAILED: OutOfMemoryError:
       # Metaspace" and then wedged for ~2h. The Expo template ships a small
       # metaspace cap, and these must be set in gradle.properties — passing

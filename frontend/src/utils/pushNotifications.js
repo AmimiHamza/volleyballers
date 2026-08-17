@@ -1,88 +1,23 @@
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import { Platform } from "react-native";
-import apiClient from "../api/client";
-
-// Configure how notifications appear when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
 /**
- * Request notification permissions and register the push token with the backend.
- * Returns the Expo push token string, or null if permissions denied / unavailable.
+ * Push notifications are disabled in this build.
+ *
+ * expo-notifications pulls Firebase into the Android manifest, including
+ * FirebaseInitProvider — a ContentProvider that runs at process start and
+ * calls FirebaseApp.initializeApp(). Without a google-services.json there is
+ * no google_app_id resource, so it throws and Android kills the app before
+ * any JavaScript runs.
+ *
+ * The module is therefore removed until a Firebase project exists. To restore
+ * push: create the Firebase project, add the GOOGLE_SERVICES_JSON repo secret
+ * (the CI workflow already uses it when present), reinstate "expo-notifications"
+ * in package.json + app.json plugins, and restore the real implementations
+ * below along with the response listener in navigation/AppNavigator.js.
  */
+
 export async function registerForPushNotifications() {
-  // Push notifications only work on physical devices
-  if (!Device.isDevice) {
-    console.log("Push notifications require a physical device");
-    return null;
-  }
-
-  // Set up Android notification channel
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF6B35",
-      sound: "default",
-    });
-  }
-
-  // Check existing permissions
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  // Request permissions if not granted
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== "granted") {
-    console.log("Push notification permission denied");
-    return null;
-  }
-
-  // Get the Expo push token. This throws when the build has no FCM credentials
-  // (no google-services.json), so treat it as "push unavailable" rather than
-  // letting it reject into the callers, which don't catch.
-  let pushToken;
-  try {
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: "volleyup",
-    });
-    pushToken = tokenData.data;
-  } catch (err) {
-    console.warn("Push token unavailable (missing FCM credentials?):", err.message);
-    return null;
-  }
-
-  // Send token to backend
-  try {
-    await apiClient.post("/push-tokens", { expo_push_token: pushToken });
-  } catch (err) {
-    console.warn("Failed to register push token with backend:", err.message);
-  }
-
-  return pushToken;
+  return null;
 }
 
-/**
- * Unregister the push token from the backend (call on logout).
- */
-export async function unregisterPushToken(pushToken) {
-  if (!pushToken) return;
-  try {
-    await apiClient.delete("/push-tokens", {
-      data: { expo_push_token: pushToken },
-    });
-  } catch (err) {
-    console.warn("Failed to unregister push token:", err.message);
-  }
+export async function unregisterPushToken() {
+  // no-op
 }

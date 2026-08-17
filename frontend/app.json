@@ -32,13 +32,6 @@
     "plugins": [
       "expo-secure-store",
       "./plugins/withNetworkSecurityConfig",
-      [
-        "expo-notifications",
-        {
-          "color": "#FF6B35",
-          "defaultChannel": "default"
-        }
-      ],
       "expo-image"
     ]
   }
